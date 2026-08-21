@@ -1,0 +1,4 @@
+permissions:
+  - user_read
+  - teams_read
+  - projects_read

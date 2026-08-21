@@ -11,10 +11,12 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/anthropic"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/asana"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/bitbucket"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/cloudflare"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/databricks"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/datadog"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/digitalocean"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/dockerhub"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/doppler"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/dropbox"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/elevenlabs"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/fastly"
@@ -22,6 +24,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/github"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/gitlab"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/groq"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/hashicorpvault"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/huggingface"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/jira"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/launchdarkly"
@@ -48,6 +51,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/square"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/stripe"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/twilio"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/vercel"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/config"
 )
 
@@ -151,5 +155,13 @@ func Run(keyType string, secretInfo SecretInfo) {
 		databricks.AnalyzeAndPrintPermissions(secretInfo.Cfg, secretInfo.Parts["domain"], secretInfo.Parts["token"])
 	case "jira":
 		jira.AnalyzeAndPrintPermissions(secretInfo.Cfg, secretInfo.Parts["domain"], secretInfo.Parts["email"], secretInfo.Parts["token"])
+	case "doppler":
+		doppler.AnalyzeAndPrintPermissions(secretInfo.Cfg, secretInfo.Parts["key"])
+	case "hashicorpvault":
+		hashicorpvault.AnalyzeAndPrintPermissions(secretInfo.Cfg, secretInfo.Parts["key"], secretInfo.Parts["url"])
+	case "cloudflare":
+		cloudflare.AnalyzeAndPrintPermissions(secretInfo.Cfg, secretInfo.Parts["key"], secretInfo.Parts["account_id"])
+	case "vercel":
+		vercel.AnalyzeAndPrintPermissions(secretInfo.Cfg, secretInfo.Parts["key"])
 	}
 }
