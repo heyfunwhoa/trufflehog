@@ -13,6 +13,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/sources/docker"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/sources/filesystem"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/sources/gcs"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/sources/gerrit"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/sources/git"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/sources/github"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/sources/gitlab"
@@ -97,6 +98,8 @@ func instantiateSourceFromType(sourceType string) (sources.Source, error) {
 		source = new(filesystem.Source)
 	case sourcespb.SourceType_SOURCE_TYPE_JENKINS.String():
 		source = new(jenkins.Source)
+	case sourcespb.SourceType_SOURCE_TYPE_GERRIT.String():
+		source = new(gerrit.Source)
 	case sourcespb.SourceType_SOURCE_TYPE_GCS.String():
 		source = new(gcs.Source)
 	case sourcespb.SourceType_SOURCE_TYPE_GCS_UNAUTHED.String():

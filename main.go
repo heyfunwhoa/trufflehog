@@ -254,6 +254,16 @@ var (
 	jenkinsPassword              = jenkinsScan.Flag("password", "Jenkins password").Envar("JENKINS_PASSWORD").String()
 	jenkinsInsecureSkipVerifyTLS = jenkinsScan.Flag("insecure-skip-verify-tls", "Skip TLS verification").Envar("JENKINS_INSECURE_SKIP_VERIFY_TLS").Bool()
 
+	gerritScan             = cli.Command("gerrit", "Find credentials in Gerrit projects.")
+	gerritScanEndpoint     = gerritScan.Flag("endpoint", "Gerrit URL").Envar("GERRIT_ENDPOINT").Required().String()
+	gerritScanUsername     = gerritScan.Flag("username", "Gerrit username").Envar("GERRIT_USERNAME").String()
+	gerritScanPassword     = gerritScan.Flag("password", "Gerrit HTTP password from Settings → HTTP Credentials").Envar("GERRIT_PASSWORD").String()
+	gerritScanProjects     = gerritScan.Flag("project", "Gerrit project to scan. You can repeat this flag. Leave empty to scan all accessible projects. Example: my/project").Strings()
+	gerritScanIncludePaths = gerritScan.Flag("include-paths", "Path to file with newline separated regexes for files to include in scan.").Short('i').String()
+	gerritScanExcludePaths = gerritScan.Flag("exclude-paths", "Path to file with newline separated regexes for files to exclude in scan.").Short('x').String()
+	gerritScanSinceCommit  = gerritScan.Flag("since-commit", "Commit to start scan from (useful in CI to scan only a change/patchset).").String()
+	gerritScanBranch       = gerritScan.Flag("branch", "Branch or commit to scan until.").String()
+
 	huggingfaceScan     = cli.Command("huggingface", "Find credentials in HuggingFace datasets, models, spaces and buckets.")
 	huggingfaceEndpoint = huggingfaceScan.Flag("endpoint", "HuggingFace endpoint.").Default("https://huggingface.co").String()
 	huggingfaceModels   = huggingfaceScan.Flag("model", "HuggingFace model to scan. You can repeat this flag. Example: 'username/model'").Strings()
@@ -1173,6 +1183,25 @@ func runSingleScan(ctx context.Context, cmd string, cfg engine.Config) (metrics,
 		}
 		if ref, err := eng.ScanJenkins(ctx, cfg); err != nil {
 			return scanMetrics, fmt.Errorf("failed to scan Jenkins: %v", err)
+		} else {
+			refs = []sources.JobProgressRef{ref}
+		}
+	case gerritScan.FullCommand():
+		filter, err := common.FilterFromFiles(*gerritScanIncludePaths, *gerritScanExcludePaths)
+		if err != nil {
+			return scanMetrics, fmt.Errorf("could not create filter: %v", err)
+		}
+		cfg := sources.GerritConfig{
+			Endpoint: *gerritScanEndpoint,
+			Username: *gerritScanUsername,
+			Password: *gerritScanPassword,
+			Projects: *gerritScanProjects,
+			Filter:   filter,
+			BaseRef:  *gerritScanSinceCommit,
+			HeadRef:  *gerritScanBranch,
+		}
+		if ref, err := eng.ScanGerrit(ctx, cfg); err != nil {
+			return scanMetrics, fmt.Errorf("failed to scan Gerrit: %v", err)
 		} else {
 			refs = []sources.JobProgressRef{ref}
 		}

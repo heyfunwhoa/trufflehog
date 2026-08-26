@@ -9,6 +9,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/tui/sources/elasticsearch"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/tui/sources/filesystem"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/tui/sources/gcs"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/tui/sources/gerrit"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/tui/sources/git"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/tui/sources/github"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/tui/sources/gitlab"
@@ -32,6 +33,8 @@ func GetSourceNotes(sourceName string) string {
 		return huggingface.GetNote()
 	case "jenkins":
 		return jenkins.GetNote()
+	case "gerrit":
+		return gerrit.GetNote()
 
 	default:
 		return ""
@@ -60,6 +63,8 @@ func GetSourceFields(sourceName string) CmdModel {
 		return filesystem.GetFields()
 	case "gcs (google cloud storage)":
 		return gcs.GetFields()
+	case "gerrit":
+		return gerrit.GetFields()
 	case "git":
 		return git.GetFields()
 	case "github":

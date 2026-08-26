@@ -64,8 +64,33 @@ func NormalizeBitbucketRepo(repoURL string) (string, error) {
 	return NormalizeOrgRepoURL(providerBitbucket, repoURL)
 }
 
+// NormalizeGerritProject normalizes a Gerrit project name or clone URL into the
+// project name Gerrit uses (slashes preserved, no leading slash, no .git suffix).
 func NormalizeGerritProject(project string) (string, error) {
-	return "", errors.Errorf("Not yet implemented")
+	project = strings.TrimSpace(project)
+	if project == "" {
+		return "", errors.New("Gerrit project name is empty")
+	}
+
+	// Accept either a project name (foo/bar) or a full clone URL.
+	if strings.Contains(project, "://") {
+		parsed, err := url.Parse(project)
+		if err != nil {
+			return "", errors.Wrap(err, "unable to parse Gerrit project URL")
+		}
+		project = strings.TrimPrefix(parsed.Path, "/")
+		project = strings.TrimPrefix(project, "a/")
+	}
+
+	project = strings.Trim(project, "/")
+	project = strings.TrimSuffix(project, ".git")
+	if decoded, err := url.PathUnescape(project); err == nil {
+		project = decoded
+	}
+	if project == "" {
+		return "", errors.New("Gerrit project name is empty")
+	}
+	return project, nil
 }
 
 func NormalizeGithubRepo(repoURL string) (string, error) {

@@ -102,6 +102,42 @@ func Test_NormalizeGitlabRepo(t *testing.T) {
 	}
 }
 
+func Test_NormalizeGerritProject(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		In  string
+		Out string
+		Err string
+	}{
+		"project name":            {In: "foo/bar", Out: "foo/bar"},
+		"leading slash":           {In: "/foo/bar", Out: "foo/bar"},
+		"trailing slash and git":  {In: "foo/bar.git/", Out: "foo/bar"},
+		"url encoded slash":       {In: "foo%2Fbar", Out: "foo/bar"},
+		"clone url":               {In: "https://gerrit.example.com/foo/bar", Out: "foo/bar"},
+		"authenticated clone url": {In: "https://gerrit.example.com/a/foo/bar.git", Out: "foo/bar"},
+		"empty":                   {In: "   ", Err: "Gerrit project name is empty"},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			out, err := NormalizeGerritProject(tt.In)
+			if tt.Err != "" {
+				if err == nil || err.Error() != tt.Err {
+					t.Fatalf("error = %v, want %q", err, tt.Err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if out != tt.Out {
+				t.Fatalf("got %q want %q", out, tt.Out)
+			}
+		})
+	}
+}
+
 func TestGenerateLink(t *testing.T) {
 	t.Parallel()
 

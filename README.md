@@ -308,6 +308,33 @@ Set the `--since-commit` flag to your default branch that people merge into (ex:
 trufflehog git file://. --since-commit main --branch feature-1 --results=verified,unknown --fail
 ```
 
+### Gerrit (Jenkins, Zuul, and other Gerrit CI)
+
+Gerrit is git, so OSS TruffleHog can scan a change the same way it scans a GitHub pull request: clone or fetch the patchset, then scan only the new commits. After your CI checkout (Jenkins Gerrit Trigger, Zuul, or similar), run:
+
+```bash
+# Scan commits in the current Gerrit patchset against the target branch.
+# GERRIT_BRANCH / GERRIT_PROJECT are set by the Gerrit Trigger plugin.
+git fetch origin "${GERRIT_BRANCH}"
+trufflehog git file://. \
+  --since-commit "FETCH_HEAD" \
+  --branch HEAD \
+  --results=verified,unknown \
+  --fail
+```
+
+Zuul already checks out the change; comparing against the target branch is enough:
+
+```bash
+trufflehog git file://. \
+  --since-commit "origin/${ZUUL_BRANCH}" \
+  --branch HEAD \
+  --results=verified,unknown \
+  --fail
+```
+
+To scan every project on a Gerrit server (not just the change in CI), use the [`gerrit` subcommand](#20-scan-gerrit).
+
 ## 14: Scan a Postman workspace
 
 Use the `--workspace-id`, `--collection-id`, `--environment` flags multiple times to scan multiple targets.
@@ -396,6 +423,28 @@ trufflehog huggingface --model <model_id> --include-discussions --include-prs
 aws s3 cp s3://example/gzipped/data.gz - | gunzip -c | trufflehog stdin
 ```
 
+## 20. Scan Gerrit
+
+Scan one or more Gerrit projects. Omit `--project` to enumerate every project the credential can list. Use a Gerrit [HTTP password](https://gerrit-review.googlesource.com/Documentation/user-upload.html#http) (Settings → HTTP Credentials), not your account password.
+
+```bash
+# Authenticated scan of selected projects
+trufflehog gerrit --endpoint https://gerrit.example.com \
+  --username scanner --password "$GERRIT_HTTP_PASSWORD" \
+  --project my/project --project other/repo
+
+# Unauthenticated scan of a public Gerrit (enumerates all visible projects)
+trufflehog gerrit --endpoint https://gerrit.example.com
+
+# Incremental scan of a project's history after a known commit or branch
+trufflehog gerrit --endpoint https://gerrit.example.com \
+  --username scanner --password "$GERRIT_HTTP_PASSWORD" \
+  --project my/project \
+  --since-commit origin/master --results=verified,unknown
+```
+
+For patchset CI, scanning the already-checked-out workspace with `trufflehog git` (see [Scan in CI](#13-scan-in-ci)) is usually faster than cloning the project again.
+
 # :question: FAQ
 
 - All I see is `🐷🔑🐷  TruffleHog. Unearth your secrets. 🐷🔑🐷` and the program exits, what gives?
@@ -412,7 +461,7 @@ aws s3 cp s3://example/gzipped/data.gz - | gunzip -c | trufflehog stdin
 TruffleHog v3 is a complete rewrite in Go with many new powerful features.
 
 - We've **added over 700 credential detectors that support active verification against their respective APIs**.
-- We've also added native **support for scanning GitHub, GitLab, Docker, filesystems, S3, GCS, Circle CI and Travis CI**.
+- We've also added native **support for scanning GitHub, GitLab, Gerrit, Docker, filesystems, S3, GCS, Circle CI and Travis CI**.
 - **Instantly verify private keys** against millions of github users and **billions** of TLS certificates using our [Driftwood](https://trufflesecurity.com/blog/driftwood) technology.
 - Scan binaries, documents, and other file formats
 - Available as a GitHub Action and a pre-commit hook
@@ -434,6 +483,7 @@ TruffleHog has a sub-command for each source of data that you may want to scan:
 - git
 - github
 - gitlab
+- gerrit
 - huggingface
 - docker
 - s3

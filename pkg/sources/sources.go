@@ -386,6 +386,28 @@ type GitlabConfig struct {
 	PrintLegacyJSON bool
 }
 
+// GerritConfig defines the optional configuration for a Gerrit source.
+type GerritConfig struct {
+	// Endpoint is the URL of the Gerrit server, for example https://gerrit.example.com.
+	Endpoint string
+	// Username is the Gerrit username for HTTP basic auth. Pair with Password.
+	Username string
+	// Password is the Gerrit HTTP password (Settings → HTTP Credentials), not the account password.
+	Password string
+	// Projects is the list of Gerrit project names to scan. Omit to enumerate all accessible projects.
+	Projects []string
+	// SkipBinaries allows skipping binary files from the scan.
+	SkipBinaries bool
+	// SkipArchives allows skipping archive files from the scan.
+	SkipArchives bool
+	// Filter is the filter to use to scan the source.
+	Filter *common.Filter
+	// HeadRef is the head reference to scan until (usually the patchset commit or branch).
+	HeadRef string
+	// BaseRef is the base reference to start scanning from (usually the target branch).
+	BaseRef string
+}
+
 // FilesystemConfig defines the optional configuration for a filesystem source.
 type FilesystemConfig struct {
 	// Paths is the list of files and directories to scan.
