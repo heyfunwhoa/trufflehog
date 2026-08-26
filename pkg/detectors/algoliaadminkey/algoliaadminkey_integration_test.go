@@ -51,9 +51,44 @@ func TestAlgoliaAdminKey_FromChunk(t *testing.T) {
 				{
 					DetectorType: detector_typepb.DetectorType_AlgoliaAdminKey,
 					Verified:     true,
-					RawV2:        []byte(fmt.Sprintf("%s%s", secret, id)),
 				},
 			},
+			wantErr: false,
+		},
+		{
+			name: "found, real secrets, verification error due to timeout",
+			s:    Scanner{client: common.SaneHttpClientTimeOut(1 * time.Microsecond)},
+			args: args{
+				ctx:    context.Background(),
+				data:   []byte(fmt.Sprintf("You can find a algolia secret %s within algolia %s", secret, id)),
+				verify: true,
+			},
+			want: func() []detectors.Result {
+				r := detectors.Result{
+					DetectorType: detector_typepb.DetectorType_AlgoliaAdminKey,
+					Verified:     false,
+				}
+				r.SetVerificationError(context.DeadlineExceeded)
+				return []detectors.Result{r}
+			}(),
+			wantErr: false,
+		},
+		{
+			name: "found, real secrets, verification error due to unexpected api surface",
+			s:    Scanner{client: common.ConstantResponseHttpClient(500, "{}")},
+			args: args{
+				ctx:    context.Background(),
+				data:   []byte(fmt.Sprintf("You can find a algolia secret %s within algolia %s", secret, id)),
+				verify: true,
+			},
+			want: func() []detectors.Result {
+				r := detectors.Result{
+					DetectorType: detector_typepb.DetectorType_AlgoliaAdminKey,
+					Verified:     false,
+				}
+				r.SetVerificationError(fmt.Errorf("unexpected HTTP response status 500"))
+				return []detectors.Result{r}
+			}(),
 			wantErr: false,
 		},
 		{
@@ -68,7 +103,6 @@ func TestAlgoliaAdminKey_FromChunk(t *testing.T) {
 				{
 					DetectorType: detector_typepb.DetectorType_AlgoliaAdminKey,
 					Verified:     false,
-					RawV2:        []byte(fmt.Sprintf("%s%s", inactiveSecret, id)),
 				},
 			},
 			wantErr: false,
@@ -87,8 +121,7 @@ func TestAlgoliaAdminKey_FromChunk(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := Scanner{}
-			got, err := s.FromData(tt.args.ctx, tt.args.verify, tt.args.data)
+			got, err := tt.s.FromData(tt.args.ctx, tt.args.verify, tt.args.data)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("AlgoliaAdminKey.FromData() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -98,6 +131,22 @@ func TestAlgoliaAdminKey_FromChunk(t *testing.T) {
 					t.Fatalf("no raw secret present: \n %+v", got[i])
 				}
 				got[i].Raw = nil
+				got[i].RawV2 = nil
+				got[i].SecretParts = nil
+				got[i].ExtraData = nil
+				gotErr := ""
+				if got[i].VerificationError() != nil {
+					gotErr = got[i].VerificationError().Error()
+				}
+				wantErr := ""
+				if tt.want[i].VerificationError() != nil {
+					wantErr = tt.want[i].VerificationError().Error()
+				}
+				if gotErr != wantErr {
+					t.Errorf("AlgoliaAdminKey.FromData() verification error = %v, wantErr %v", gotErr, wantErr)
+				}
+				got[i].SetVerificationError(nil)
+				tt.want[i].SetVerificationError(nil)
 			}
 			if diff := pretty.Compare(got, tt.want); diff != "" {
 				t.Errorf("AlgoliaAdminKey.FromData() %s diff: (-got +want)\n%s", tt.name, diff)
