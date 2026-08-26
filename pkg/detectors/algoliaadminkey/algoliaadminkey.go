@@ -20,6 +20,7 @@ import (
 )
 
 type Scanner struct {
+	client *http.Client
 	detectors.DefaultMultiPartCredentialProvider
 }
 
@@ -27,7 +28,7 @@ type Scanner struct {
 var _ detectors.Detector = (*Scanner)(nil)
 
 var (
-	client = common.SaneHttpClient()
+	defaultClient = common.SaneHttpClient()
 
 	// Make sure that your group is surrounded in boundary characters such as below to reduce false positives.
 	idPat  = regexp.MustCompile(detectors.PrefixRegex([]string{"algolia", "docsearch", "appId"}) + `\b([A-Z0-9]{10})\b`)
@@ -37,6 +38,13 @@ var (
 
 	errNoHost = errors.New("no such host")
 )
+
+func (s Scanner) getClient() *http.Client {
+	if s.client != nil {
+		return s.client
+	}
+	return defaultClient
+}
 
 // Keywords are used for efficiently pre-filtering chunks.
 // Use identifiers in the secret preferably, or the provider name.
@@ -65,6 +73,8 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 		}
 	}
 
+	client := s.getClient()
+
 	// Test matches.
 	for key := range keyMatches {
 		for id := range idMatches {
@@ -85,8 +95,7 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 			}
 
 			if verify {
-				// Verify if the key is a valid Algolia Admin Key.
-				isVerified, extraData, verificationErr := verifyMatch(ctx, id, key)
+				isVerified, extraData, verificationErr := verifyMatch(ctx, client, id, key)
 				r.Verified = isVerified
 				r.ExtraData = extraData
 				if verificationErr != nil {
@@ -115,9 +124,24 @@ var nonSensitivePermissions = map[string]struct{}{
 	"settings":    {},
 }
 
-func verifyMatch(ctx context.Context, appId, apiKey string) (bool, map[string]string, error) {
-	// https://www.algolia.com/doc/rest-api/search/#section/Base-URLs
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://"+appId+".algolia.net/1/keys/"+apiKey, nil)
+func verifyMatch(ctx context.Context, client *http.Client, appId, apiKey string) (bool, map[string]string, error) {
+	verified, extraData, err := verifySearchAPIKey(ctx, client, appId, apiKey)
+	if err != nil {
+		return false, nil, err
+	}
+	if verified || extraData != nil {
+		return verified, extraData, nil
+	}
+
+	// Search API rejected the key. It may still be a Monitoring API key,
+	// which authenticates against status.algolia.com instead.
+	return verifyMonitoringAPIKey(ctx, client, appId, apiKey)
+}
+
+func verifySearchAPIKey(ctx context.Context, client *http.Client, appId, apiKey string) (bool, map[string]string, error) {
+	// https://www.algolia.com/doc/rest-api/search/#tag/Api-Keys/operation/getApiKey
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodGet, "https://"+appId+".algolia.net/1/keys/"+apiKey, http.NoBody)
 	if err != nil {
 		return false, nil, err
 	}
@@ -146,18 +170,6 @@ func verifyMatch(ctx context.Context, appId, apiKey string) (bool, map[string]st
 			return false, nil, err
 		}
 
-		// Check if the key has sensitive permissions, even if it's not an Admin Key.
-		hasSensitivePerms := false
-		for _, acl := range keyRes.ACL {
-			if _, ok := nonSensitivePermissions[acl]; !ok {
-				hasSensitivePerms = true
-				break
-			}
-		}
-		if !hasSensitivePerms {
-			return false, nil, nil
-		}
-
 		slices.Sort(keyRes.ACL)
 		extraData := map[string]string{
 			"acl": strings.Join(keyRes.ACL, ","),
@@ -165,12 +177,56 @@ func verifyMatch(ctx context.Context, appId, apiKey string) (bool, map[string]st
 		if keyRes.Description != "" && keyRes.Description != "<redacted>" {
 			extraData["description"] = keyRes.Description
 		}
+
+		// Search-only keys are designed to be public. Record that the key is
+		// valid so verification is determinate, but do not mark it verified.
+		if !hasSensitivePermissions(keyRes.ACL) {
+			return false, extraData, nil
+		}
+
 		return true, extraData, nil
-	case http.StatusUnauthorized:
+	case http.StatusUnauthorized, http.StatusForbidden:
+		// Invalidated Search API key, or a key that belongs to another Algolia API.
 		return false, nil, nil
-	case http.StatusForbidden:
-		// Invalidated key.
-		// {"message":"Invalid Application-ID or API key","status":403}
+	default:
+		return false, nil, fmt.Errorf("unexpected HTTP response status %d", res.StatusCode)
+	}
+}
+
+func hasSensitivePermissions(acl []string) bool {
+	for _, perm := range acl {
+		if _, ok := nonSensitivePermissions[perm]; !ok {
+			return true
+		}
+	}
+	return false
+}
+
+func verifyMonitoringAPIKey(ctx context.Context, client *http.Client, appId, apiKey string) (bool, map[string]string, error) {
+	// Authenticated inventory requires a Monitoring API key. Invalid keys return 403.
+	// https://www.algolia.com/doc/rest-api/monitoring/get-servers
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodGet, "https://status.algolia.com/1/inventory/servers", http.NoBody)
+	if err != nil {
+		return false, nil, err
+	}
+
+	req.Header.Set("X-Algolia-Application-Id", appId)
+	req.Header.Set("X-Algolia-API-Key", apiKey)
+
+	res, err := client.Do(req)
+	if err != nil {
+		return false, nil, err
+	}
+	defer func() {
+		_, _ = io.Copy(io.Discard, res.Body)
+		_ = res.Body.Close()
+	}()
+
+	switch res.StatusCode {
+	case http.StatusOK:
+		return true, map[string]string{"type": "monitoring"}, nil
+	case http.StatusUnauthorized, http.StatusForbidden:
 		return false, nil, nil
 	default:
 		return false, nil, fmt.Errorf("unexpected HTTP response status %d", res.StatusCode)
@@ -188,5 +244,5 @@ func (s Scanner) Type() detector_typepb.DetectorType {
 }
 
 func (s Scanner) Description() string {
-	return "Algolia is a search-as-a-service platform. Algolia Admin Keys can be used to manage indices and API keys, and perform administrative tasks."
+	return "Algolia is a search-as-a-service platform. Algolia API keys (admin, custom, and monitoring) authenticate requests to manage indices, query data, and access account APIs."
 }
