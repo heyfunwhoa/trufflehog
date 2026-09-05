@@ -57,6 +57,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/atera"
 	atlassianv1 "github.com/trufflesecurity/trufflehog/v3/pkg/detectors/atlassian/v1"
 	atlassianv2 "github.com/trufflesecurity/trufflehog/v3/pkg/detectors/atlassian/v2"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/atlassiandatacenter/bamboo"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/atlassiandatacenter/bitbucketdatacenter"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/atlassiandatacenter/confluencedatacenter"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/atlassiandatacenter/jiradatacenterpat"
@@ -1000,6 +1001,7 @@ func buildDetectorList() []detectors.Detector {
 		&besttime.Scanner{},
 		&betterstack.Scanner{},
 		&billomat.Scanner{},
+		&bamboo.Scanner{},
 		&bitbar.Scanner{},
 		&bitbucketdatacenter.Scanner{},
 		&bitbucketapppassword.Scanner{},
