@@ -435,6 +435,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/langfuse"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/langsmith"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/languagelayer"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/laravelappkey"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/larksuite"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/larksuiteapikey"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/launchdarkly"
@@ -1348,6 +1349,7 @@ func buildDetectorList() []detectors.Detector {
 		&langfuse.Scanner{},
 		&langsmith.Scanner{},
 		&languagelayer.Scanner{},
+		&laravelappkey.Scanner{},
 		&larksuite.Scanner{},
 		&larksuiteapikey.Scanner{},
 		&launchdarkly.Scanner{},
