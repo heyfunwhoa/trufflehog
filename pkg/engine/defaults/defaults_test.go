@@ -151,6 +151,9 @@ var excludedFromDefaultList = map[detector_typepb.DetectorType]struct{}{
 	detector_typepb.DetectorType_NewRelicInsightsQueryKey:  {},
 	detector_typepb.DetectorType_NewRelicMobileAppToken:    {},
 	detector_typepb.DetectorType_SolarWindsObservability:   {},
+	detector_typepb.DetectorType_MercadoPago:               {},
+	detector_typepb.DetectorType_WeChatAppKey:              {},
+	detector_typepb.DetectorType_Riotgames:                 {},
 
 	// Reserved / special types.
 	detector_typepb.DetectorType_CustomRegex: {}, // added dynamically via engine config, not via buildDetectorList()
@@ -329,7 +332,6 @@ var excludedFromDefaultList = map[detector_typepb.DetectorType]struct{}{
 	detector_typepb.DetectorType_Quickbase:                               {},
 	detector_typepb.DetectorType_ReCAPTCHA:                               {},
 	detector_typepb.DetectorType_Redbooth:                                {},
-	detector_typepb.DetectorType_Riotgames:                               {},
 	detector_typepb.DetectorType_Rosette:                                 {},
 	detector_typepb.DetectorType_Samsara:                                 {},
 	detector_typepb.DetectorType_ScrapingDog:                             {},
@@ -353,7 +355,6 @@ var excludedFromDefaultList = map[detector_typepb.DetectorType]struct{}{
 	detector_typepb.DetectorType_Vonage:                                  {},
 	detector_typepb.DetectorType_Wakatime:                                {},
 	detector_typepb.DetectorType_Webengage:                               {},
-	detector_typepb.DetectorType_WeChatAppKey:                            {},
 	detector_typepb.DetectorType_Woopra:                                  {},
 	detector_typepb.DetectorType_WordsApi:                                {},
 	detector_typepb.DetectorType_Workday:                                 {},

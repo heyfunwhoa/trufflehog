@@ -169,7 +169,7 @@ enum DetectorType {
   HelpCrunch = 164;
   LiveAgent = 165;
   Beamer = 166;
-  WeChatAppKey = 167; // Not yet implemented
+  WeChatAppKey = 167;
   LineMessaging = 168;
   UberServerToken = 169; // Not yet implemented
   AlgoliaAdminKey = 170;
@@ -308,7 +308,7 @@ enum DetectorType {
   Accuweather = 303;
   Opengraphr = 304 [deprecated = true];
   Rawg = 305;
-  Riotgames = 306; // Not yet implemented
+  Riotgames = 306;
   Clientary = 307;
   Stormglass = 308;
   Tomtom = 309;
@@ -1071,4 +1071,5 @@ enum DetectorType {
   NewRelicInsightsQueryKey = 1067;
   NewRelicMobileAppToken = 1068;
   SolarWindsObservability = 1069;
+  MercadoPago = 1070;
 }
