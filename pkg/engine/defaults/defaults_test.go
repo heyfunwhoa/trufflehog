@@ -215,7 +215,6 @@ var excludedFromDefaultList = map[detector_typepb.DetectorType]struct{}{
 	detector_typepb.DetectorType_M3o:              {},
 	detector_typepb.DetectorType_Magnetic:         {},
 	detector_typepb.DetectorType_Manifest:         {},
-	detector_typepb.DetectorType_Mixpanel:         {},
 	detector_typepb.DetectorType_NasdaqDataLink:   {},
 	detector_typepb.DetectorType_Raven:            {},
 	detector_typepb.DetectorType_Sparkpost:        {},
