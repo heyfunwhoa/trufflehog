@@ -48,6 +48,53 @@ func TestDecryptLaravelCookieCBC(t *testing.T) {
 	}
 }
 
+func TestDecryptPHPLaravelEncrypterPayloads(t *testing.T) {
+	// Fixtures produced by PHP 8.3 openssl_* using the same steps as
+	// Illuminate\Encryption\Encrypter::encrypt / decrypt (AES-256-CBC default,
+	// AES-256-GCM AEAD, AES-128-CBC). Key material is 32 (or 16) 0x61/0x63 bytes.
+	const appKey256 = "base64:YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE="
+	const appKey128 = "base64:Y2NjY2NjY2NjY2NjY2NjYw=="
+
+	tests := []struct {
+		name   string
+		appKey string
+		cookie string
+	}{
+		{
+			name:   "php aes-256-cbc",
+			appKey: appKey256,
+			cookie: "eyJpdiI6ImVJKzFuN1FYK2JPd0Y4d3dxZzFtT3c9PSIsInZhbHVlIjoiYWtxU21lVklSTHN1MmdQd2h3c0U4LzZ5QkF0ZW1wVGF5cEhUN0xUOUNOWT0iLCJtYWMiOiJhNDgyZGExNzQ5Y2I4ODdmNzc3NWQ1M2JiN2YxYjdiZDY2ZGFhNjQyNzRjZDM5OGY1ZGY4ZWI1YTRjY2Q4NzFmIiwidGFnIjoiIn0=",
+		},
+		{
+			name:   "php aes-256-gcm empty mac",
+			appKey: appKey256,
+			cookie: "eyJpdiI6IjcxK2d1bjVveXNCK2s0M1UiLCJ2YWx1ZSI6IjhYRnFwUkZmL1RrZ0ZNbkM1WnNSU2htM3NNblJBRzFlTkQxa3Z3PT0iLCJtYWMiOiIiLCJ0YWciOiJQNDgwM0lpNVFZRnZ2RnhlNmQxLzVnPT0ifQ==",
+		},
+		{
+			name:   "php aes-128-cbc",
+			appKey: appKey128,
+			cookie: "eyJpdiI6IjdjNEZITVd0THg4NGI2aU5ldkRXaEE9PSIsInZhbHVlIjoiSkZQS2NxSEFaRVNlS0J3VmpLc0tudz09IiwibWFjIjoiMjIwMmI3OTIyMDRkMjIzM2I5ZjQyM2YzNDJhYTUwZWM2YmJkN2JmY2VkYWUyZjEzYWRiMzY3YzdjNjc4MWRhYiIsInRhZyI6IiJ9",
+		},
+		{
+			name:   "openssl-cli aes-256-cbc deterministic iv",
+			appKey: appKey256,
+			cookie: "eyJpdiI6IlltSmlZbUppWW1KaVltSmlZbUppWWc9PSIsInZhbHVlIjoiL0N3Tzl2MGNaV0h1MGNFSDlVV0V1OWF6WExPcHRBdkdHTFVMRWNlY1dvQT0iLCJtYWMiOiI0NjI3ZDkxY2I5YTBjZWZlOTAyNDExNjllM2M1NDA4M2EyNTcyYjE3Zjg4MDBmNWU2NjA5MTRjYWM0MjZmMjQzIiwidGFnIjoiIn0=",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !decryptLaravelCookie(tt.appKey, tt.cookie) {
+				t.Fatalf("expected PHP/OpenSSL Laravel payload to verify")
+			}
+			wrong := "base64:" + base64.StdEncoding.EncodeToString(bytes32('z'))
+			if decryptLaravelCookie(wrong, tt.cookie) {
+				t.Fatal("expected wrong APP_KEY to fail")
+			}
+		})
+	}
+}
+
 func TestDecryptLaravelCookieGCM(t *testing.T) {
 	appKey := "base64:" + base64.StdEncoding.EncodeToString(bytes32('g'))
 	cookie, err := encryptLaravelGCM(appKey, []byte("xsrf-token"))
@@ -144,14 +191,13 @@ func encryptLaravelGCM(appKey string, plaintext []byte) (string, error) {
 	ivB64 := base64.StdEncoding.EncodeToString(iv)
 	valueB64 := base64.StdEncoding.EncodeToString(ciphertext)
 	tagB64 := base64.StdEncoding.EncodeToString(tag)
-	mac := hmac.New(sha256.New, key)
-	_, _ = mac.Write([]byte(ivB64 + valueB64))
 
 	payload, err := json.Marshal(laravelPayload{
 		IV:    ivB64,
 		Value: valueB64,
-		MAC:   hex.EncodeToString(mac.Sum(nil)),
-		Tag:   tagB64,
+		// Laravel AEAD ciphers leave mac empty and rely on the GCM tag.
+		MAC: "",
+		Tag: tagB64,
 	})
 	if err != nil {
 		return "", err

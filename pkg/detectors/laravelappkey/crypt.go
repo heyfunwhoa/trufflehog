@@ -87,8 +87,12 @@ func unescapeCookieValue(value string) (string, error) {
 }
 
 // decryptLaravelCookie reports whether cookieValue was produced by Laravel's
-// Encrypter using appKey. Success requires a valid MAC (CBC) or a successful
-// AES-GCM open (GCM). This matches Illuminate\Encryption\Encrypter.
+// Encrypter using appKey.
+//
+// Matches Illuminate\Encryption\Encrypter (Laravel 11/12):
+//   - AES-CBC: HMAC-SHA256(iv_b64 + value_b64, key) then AES-CBC + PKCS#7
+//   - AES-GCM: empty MAC; authenticate via the 16-byte GCM tag
+//   - APP_KEY "base64:" prefix is stripped and decoded (EncryptionServiceProvider::parseKey)
 func decryptLaravelCookie(appKey, cookieValue string) bool {
 	key, err := parseAppKey(appKey)
 	if err != nil {
