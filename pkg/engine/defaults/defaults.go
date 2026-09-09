@@ -482,6 +482,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/mediastack"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/meistertask"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/meraki"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/mercadopago"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/mesibo"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/messagebird"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/metaapi"
@@ -649,6 +650,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/rev"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/revampcrm"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/ringcentral"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/riotgames"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/ritekit"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/roaring"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/robinhoodcrypto"
@@ -864,6 +866,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/webscraper"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/webscraping"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/websitepulse"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/wechatappkey"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/weightsandbiases"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/whoxy"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/wistia"
@@ -1399,6 +1402,7 @@ func buildDetectorList() []detectors.Detector {
 		&mediastack.Scanner{},
 		&meistertask.Scanner{},
 		&meraki.Scanner{},
+		&mercadopago.Scanner{},
 		&mesibo.Scanner{},
 		&messagebird.Scanner{},
 		&metaapi.Scanner{},
@@ -1570,6 +1574,7 @@ func buildDetectorList() []detectors.Detector {
 		&rev.Scanner{},
 		&revampcrm.Scanner{},
 		&ringcentral.Scanner{},
+		&riotgames.Scanner{},
 		&ritekit.Scanner{},
 		&roaring.Scanner{},
 		&robinhoodcrypto.Scanner{},
@@ -1789,6 +1794,7 @@ func buildDetectorList() []detectors.Detector {
 		&webscraper.Scanner{},
 		&webscraping.Scanner{},
 		&websitepulse.Scanner{},
+		&wechatappkey.Scanner{},
 		&weightsandbiases.Scanner{},
 		// &wepay.Scanner{},
 		&whoxy.Scanner{},
@@ -1892,6 +1898,12 @@ func buildDetectorList() []detectors.Detector {
 			return !feature.MSTeamsWebhookV2DetectorEnabled.Load()
 		case *solarwindsobservability.Scanner:
 			return !feature.SolarwindsDetectorEnabled.Load()
+		case *mercadopago.Scanner:
+			return !feature.MercadoPagoDetectorEnabled.Load()
+		case *wechatappkey.Scanner:
+			return !feature.WeChatAppKeyDetectorEnabled.Load()
+		case *riotgames.Scanner:
+			return !feature.RiotgamesDetectorEnabled.Load()
 		default:
 			return false
 		}

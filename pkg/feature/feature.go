@@ -50,6 +50,9 @@ var (
 	NewRelicMobileAppTokenDetectorEnabled    atomic.Bool
 	MSTeamsWebhookV2DetectorEnabled          atomic.Bool
 	SolarwindsDetectorEnabled                atomic.Bool
+	MercadoPagoDetectorEnabled               atomic.Bool
+	WeChatAppKeyDetectorEnabled              atomic.Bool
+	RiotgamesDetectorEnabled                 atomic.Bool
 )
 
 type AtomicString struct {

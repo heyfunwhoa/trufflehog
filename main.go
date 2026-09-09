@@ -575,6 +575,9 @@ func run(state overseer.State, logSync func() error) {
 	feature.NewRelicMobileAppTokenDetectorEnabled.Store(true)
 	feature.MSTeamsWebhookV2DetectorEnabled.Store(true)
 	feature.SolarwindsDetectorEnabled.Store(true)
+	feature.MercadoPagoDetectorEnabled.Store(true)
+	feature.WeChatAppKeyDetectorEnabled.Store(true)
+	feature.RiotgamesDetectorEnabled.Store(true)
 
 	conf := &config.Config{}
 	if *configFilename != "" {
