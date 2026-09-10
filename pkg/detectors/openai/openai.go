@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	regexp "github.com/wasilibs/go-re2"
@@ -21,8 +22,13 @@ type Scanner struct {
 	client *http.Client
 }
 
-// Ensure the Scanner satisfies the interface at compile time.
+// SecretPartKey is the SecretParts map key this detector stores and that
+// Reverify requires.
+const SecretPartKey = "key"
+
+// Ensure the Scanner satisfies the interfaces at compile time.
 var _ detectors.Detector = (*Scanner)(nil)
+var _ detectors.Reverifier = (*Scanner)(nil)
 
 var (
 	// The OpenAI API can be slow to respond under load, so use a longer
@@ -57,29 +63,61 @@ func (s Scanner) FromData(ctx context.Context, verify bool, data []byte) (result
 	}
 
 	for token := range uniqueMatches {
-		s1 := detectors.Result{
-			DetectorType: detector_typepb.DetectorType_OpenAI,
-			Redacted:     token[:3] + "..." + token[min(len(token)-1, 47):],
-			Raw:          []byte(token),
-			SecretParts:  map[string]string{"key": token},
-		}
-
+		s1 := resultForToken(token)
 		if verify {
-			client := s.client
-			if client == nil {
-				client = defaultClient
-			}
-
-			verified, extraData, verificationErr := verifyToken(ctx, client, token)
-			s1.Verified = verified
-			s1.ExtraData = extraData
-			s1.SetVerificationError(verificationErr)
+			s.verifyResult(ctx, &s1, token)
 		}
-
 		results = append(results, s1)
 	}
 
 	return
+}
+
+// Reverify checks whether a previously discovered OpenAI key is still live
+// using the credential stored in SecretParts. It does not re-run detection.
+func (s Scanner) Reverify(ctx context.Context, secretParts map[string]string) (detectors.Result, error) {
+	token := ""
+	if secretParts != nil {
+		token = strings.TrimSpace(secretParts[SecretPartKey])
+	}
+	if token == "" {
+		return detectors.Result{}, fmt.Errorf("missing required secret part %q", SecretPartKey)
+	}
+
+	s1 := resultForToken(token)
+	s.verifyResult(ctx, &s1, token)
+	return s1, nil
+}
+
+func resultForToken(token string) detectors.Result {
+	return detectors.Result{
+		DetectorType: detector_typepb.DetectorType_OpenAI,
+		Redacted:     redactToken(token),
+		Raw:          []byte(token),
+		SecretParts:  map[string]string{SecretPartKey: token},
+	}
+}
+
+func redactToken(token string) string {
+	if len(token) < 4 {
+		return "sk-..."
+	}
+	end := min(len(token)-1, 47)
+	return token[:3] + "..." + token[end:]
+}
+
+func (s Scanner) httpClient() *http.Client {
+	if s.client != nil {
+		return s.client
+	}
+	return defaultClient
+}
+
+func (s Scanner) verifyResult(ctx context.Context, result *detectors.Result, token string) {
+	verified, extraData, verificationErr := verifyToken(ctx, s.httpClient(), token)
+	result.Verified = verified
+	result.ExtraData = extraData
+	result.SetVerificationError(verificationErr, token)
 }
 
 func verifyToken(ctx context.Context, client *http.Client, token string) (bool, map[string]string, error) {

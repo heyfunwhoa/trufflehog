@@ -40,6 +40,20 @@ type Detector interface {
 	Description() string
 }
 
+// Reverifier is an optional interface a detector can implement to re-verify a
+// previously discovered secret from its SecretParts, without requiring the
+// original scanned chunk. Callers (including enterprise TruffleHog) use this
+// to check whether a stored credential is still live.
+//
+// secretParts must use the same keys the detector stores on Result.SecretParts.
+// Missing or empty required parts should return an error. Verification
+// outcomes follow the same determinate/indeterminate contract as FromData:
+// determinate failures set Result.Verified=false with no verification error;
+// indeterminate failures set a verification error via SetVerificationError.
+type Reverifier interface {
+	Reverify(ctx context.Context, secretParts map[string]string) (Result, error)
+}
+
 // CustomResultsCleaner is an optional interface that a detector can implement to customize how its generated results
 // are "cleaned," which is defined as removing superfluous results from those found in a given chunk. The default
 // implementation of this logic removes all unverified results if there are any verified results, and all unverified
