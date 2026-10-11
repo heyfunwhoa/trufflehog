@@ -2,8 +2,11 @@ package openai
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -161,5 +164,248 @@ func TestOpenAI_Pattern(t *testing.T) {
 				t.Errorf("%s diff: (-want +got)\n%s", test.name, diff)
 			}
 		})
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+const sampleOpenAIKey = "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"
+
+const liveMeBody = `{
+	"id": "user-abc123",
+	"created": 1700000000,
+	"mfa_flag_enabled": true,
+	"orgs": {
+		"data": [{
+			"description": "Acme",
+			"personal": false,
+			"is_default": true
+		}]
+	}
+}`
+
+func mockClient(t *testing.T, fn roundTripFunc) *http.Client {
+	t.Helper()
+	return &http.Client{Transport: fn}
+}
+
+func TestOpenAI_ReverifyLiveKey(t *testing.T) {
+	s := Scanner{client: mockClient(t, func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodGet {
+			t.Fatalf("expected GET, got %s", req.Method)
+		}
+		if req.URL.String() != "https://api.openai.com/v1/me" {
+			t.Fatalf("unexpected URL %s", req.URL.String())
+		}
+		if got := req.Header.Get("Authorization"); got != "Bearer "+sampleOpenAIKey {
+			t.Fatalf("unexpected Authorization header %q", got)
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(liveMeBody)),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})}
+
+	got, err := s.Reverify(context.Background(), map[string]string{SecretPartKey: sampleOpenAIKey})
+	if err != nil {
+		t.Fatalf("Reverify returned error: %v", err)
+	}
+	if !got.Verified {
+		t.Fatal("expected key to verify")
+	}
+	if got.VerificationError() != nil {
+		t.Fatalf("unexpected verification error: %v", got.VerificationError())
+	}
+	if string(got.Raw) != sampleOpenAIKey {
+		t.Fatalf("Raw = %q, want %q", got.Raw, sampleOpenAIKey)
+	}
+	if got.SecretParts[SecretPartKey] != sampleOpenAIKey {
+		t.Fatalf("SecretParts[%q] = %q", SecretPartKey, got.SecretParts[SecretPartKey])
+	}
+	if got.ExtraData["id"] != "user-abc123" {
+		t.Fatalf("extra id = %q", got.ExtraData["id"])
+	}
+	if got.ExtraData["total_orgs"] != "1" {
+		t.Fatalf("extra total_orgs = %q", got.ExtraData["total_orgs"])
+	}
+	if got.ExtraData["mfa_enabled"] != "true" {
+		t.Fatalf("extra mfa_enabled = %q", got.ExtraData["mfa_enabled"])
+	}
+	if got.ExtraData["description"] != "Acme" {
+		t.Fatalf("extra description = %q", got.ExtraData["description"])
+	}
+	if got.ExtraData["is_personal"] != "false" {
+		t.Fatalf("extra is_personal = %q", got.ExtraData["is_personal"])
+	}
+	if got.ExtraData["is_default"] != "true" {
+		t.Fatalf("extra is_default = %q", got.ExtraData["is_default"])
+	}
+}
+
+func TestOpenAI_ReverifyDoesNotRequireOriginalChunk(t *testing.T) {
+	s := Scanner{client: mockClient(t, func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(liveMeBody)),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})}
+
+	got, err := s.Reverify(context.Background(), map[string]string{SecretPartKey: sampleOpenAIKey})
+	if err != nil {
+		t.Fatalf("Reverify returned error: %v", err)
+	}
+	if !got.Verified {
+		t.Fatal("expected reverification from SecretParts alone")
+	}
+
+	fromData, err := s.FromData(context.Background(), false, []byte(sampleOpenAIKey))
+	if err != nil {
+		t.Fatalf("FromData returned error: %v", err)
+	}
+	if len(fromData) != 1 {
+		t.Fatalf("expected FromData to still detect the raw key, got %d results", len(fromData))
+	}
+}
+
+func TestOpenAI_ReverifyInvalidKey(t *testing.T) {
+	s := Scanner{client: mockClient(t, func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusUnauthorized,
+			Body:       io.NopCloser(strings.NewReader(`{"error":{"code":"invalid_api_key"}}`)),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})}
+
+	got, err := s.Reverify(context.Background(), map[string]string{SecretPartKey: sampleOpenAIKey})
+	if err != nil {
+		t.Fatalf("Reverify returned error: %v", err)
+	}
+	if got.Verified {
+		t.Fatal("expected determinate unverified result")
+	}
+	if got.VerificationError() != nil {
+		t.Fatalf("401 should be determinate, got verification error: %v", got.VerificationError())
+	}
+}
+
+func TestOpenAI_ReverifyUnexpectedStatus(t *testing.T) {
+	s := Scanner{client: mockClient(t, func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusInternalServerError,
+			Body:       io.NopCloser(strings.NewReader("upstream error")),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})}
+
+	got, err := s.Reverify(context.Background(), map[string]string{SecretPartKey: sampleOpenAIKey})
+	if err != nil {
+		t.Fatalf("Reverify returned error: %v", err)
+	}
+	if got.Verified {
+		t.Fatal("expected unverified result on unexpected status")
+	}
+	if got.VerificationError() == nil {
+		t.Fatal("expected indeterminate verification error for HTTP 500")
+	}
+}
+
+func TestOpenAI_ReverifyNetworkError(t *testing.T) {
+	s := Scanner{client: mockClient(t, func(req *http.Request) (*http.Response, error) {
+		return nil, context.DeadlineExceeded
+	})}
+
+	got, err := s.Reverify(context.Background(), map[string]string{SecretPartKey: sampleOpenAIKey})
+	if err != nil {
+		t.Fatalf("Reverify returned error: %v", err)
+	}
+	if got.Verified {
+		t.Fatal("expected unverified result on network error")
+	}
+	if got.VerificationError() == nil {
+		t.Fatal("expected indeterminate verification error for network failure")
+	}
+	if !strings.Contains(got.VerificationError().Error(), "context deadline exceeded") {
+		t.Fatalf("unexpected verification error: %v", got.VerificationError())
+	}
+}
+
+func TestOpenAI_ReverifyRedactsSecretInVerificationError(t *testing.T) {
+	s := Scanner{client: mockClient(t, func(req *http.Request) (*http.Response, error) {
+		return nil, fmt.Errorf("upstream rejected %s", sampleOpenAIKey)
+	})}
+
+	got, err := s.Reverify(context.Background(), map[string]string{SecretPartKey: sampleOpenAIKey})
+	if err != nil {
+		t.Fatalf("Reverify returned error: %v", err)
+	}
+	if got.VerificationError() == nil {
+		t.Fatal("expected verification error")
+	}
+	if strings.Contains(got.VerificationError().Error(), sampleOpenAIKey) {
+		t.Fatalf("verification error leaked secret: %v", got.VerificationError())
+	}
+}
+
+func TestOpenAI_ReverifyMissingSecretPart(t *testing.T) {
+	s := Scanner{}
+	tests := []struct {
+		name  string
+		parts map[string]string
+	}{
+		{name: "nil map", parts: nil},
+		{name: "empty map", parts: map[string]string{}},
+		{name: "empty key", parts: map[string]string{SecretPartKey: ""}},
+		{name: "whitespace key", parts: map[string]string{SecretPartKey: "   "}},
+		{name: "wrong key name", parts: map[string]string{"token": sampleOpenAIKey}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := s.Reverify(context.Background(), tt.parts)
+			if err == nil {
+				t.Fatal("expected error for missing secret part")
+			}
+			if !strings.Contains(err.Error(), SecretPartKey) {
+				t.Fatalf("error should mention %q, got %v", SecretPartKey, err)
+			}
+			if got.Verified || len(got.Raw) != 0 {
+				t.Fatalf("expected empty result on caller error, got %#v", got)
+			}
+		})
+	}
+}
+
+func TestOpenAI_FromDataVerifyUsesSamePathAsReverify(t *testing.T) {
+	s := Scanner{client: mockClient(t, func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(liveMeBody)),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})}
+
+	results, err := s.FromData(context.Background(), true, []byte("openai.api-key: "+sampleOpenAIKey))
+	if err != nil {
+		t.Fatalf("FromData returned error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if !results[0].Verified {
+		t.Fatal("expected FromData verify path to mark the key verified")
+	}
+	if results[0].ExtraData["id"] != "user-abc123" {
+		t.Fatalf("expected shared extra data, got %#v", results[0].ExtraData)
 	}
 }

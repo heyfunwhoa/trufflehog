@@ -17,6 +17,7 @@ The purpose of Secret Detectors is to discover secrets with exceptionally high s
     - [Development Dependencies](#development-dependencies)
     - [Creating a new Secret Scanner](#creating-a-new-secret-scanner)
   - [Populating SecretParts](#populating-secretparts)
+  - [Re-verifying from SecretParts](#re-verifying-from-secretparts)
   - [Addendum](#addendum)
     - [Verification indeterminacy](#verification-indeterminacy)
     - [Managing Test Secrets](#managing-test-secrets)
@@ -133,6 +134,29 @@ s1 := detectors.Result{
 - Multi-part: pick descriptive, lowercase, `snake_case` keys that name each part (e.g. `client_id`, `client_secret`, `access_key_id`, `secret_access_key`, `username`, `password`, `domain`, `host`, `endpoint`). If the detector also has a corresponding analyzer in `pkg/analyzer/analyzers/`, the keys must match what the analyzer expects, since analyzers read directly from this map.
 - Only secret parts that uniquely identify the credential belong in `SecretParts`. Unrelated metadata belongs in `ExtraData`.
 - This field is the source of truth for uniquely identifying a credential.
+
+## Re-verifying from SecretParts
+
+Detectors may optionally implement [`detectors.Reverifier`](/pkg/detectors/detectors.go) so previously discovered secrets can be re-checked from stored `SecretParts` without the original scanned chunk:
+
+```go
+var _ detectors.Reverifier = (*Scanner)(nil)
+
+func (s Scanner) Reverify(ctx context.Context, secretParts map[string]string) (detectors.Result, error) {
+    token := secretParts["key"]
+    if token == "" {
+        return detectors.Result{}, fmt.Errorf("missing required secret part %q", "key")
+    }
+    // Call the same verification helper FromData uses, then return a Result.
+}
+```
+
+`Reverify` must:
+- Read the same keys the detector stores on `Result.SecretParts`.
+- Return an error if required parts are missing (caller error, not a verification outcome).
+- Follow the same determinate/indeterminate verification contract as `FromData`.
+
+The OpenAI detector is the reference implementation.
 
 ## Addendum
 

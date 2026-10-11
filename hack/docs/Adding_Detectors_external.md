@@ -18,6 +18,7 @@ The purpose of Secret Detectors is to discover secrets with exceptionally high s
     + [Creating a new Secret Detector](#creating-a-new-secret-detector)
     + [Testing the Detector](#testing-the-detector)
   * [Populating SecretParts](#populating-secretparts)
+  * [Re-verifying from SecretParts](#re-verifying-from-secretparts)
   * [Addendum](#addendum)
     + [Verification indeterminacy](#verification-indeterminacy)
     + [Adding Protos in Windows](#adding-protos-in-windows)
@@ -172,6 +173,16 @@ s1 := detectors.Result{
 - Only secret parts that uniquely identify the credential belong in `SecretParts`. Unrelated metadata belongs in `ExtraData`.
 - This field is the source of truth for uniquely identifying a credential.
 
+## Re-verifying from SecretParts
+
+Detectors may optionally implement [`detectors.Reverifier`](/pkg/detectors/detectors.go) so previously discovered secrets can be re-checked from stored `SecretParts` without the original scanned chunk.
+
+`Reverify` must:
+- Read the same keys the detector stores on `Result.SecretParts`.
+- Return an error if required parts are missing (caller error, not a verification outcome).
+- Follow the same determinate/indeterminate verification contract as `FromData`.
+
+The OpenAI detector is the reference implementation.
 
 ## Addendum
 
