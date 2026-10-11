@@ -47,6 +47,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/sourcegraph"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/square"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/stripe"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/terraformcloud"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/analyzers/twilio"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/analyzer/config"
 )
@@ -151,5 +152,7 @@ func Run(keyType string, secretInfo SecretInfo) {
 		databricks.AnalyzeAndPrintPermissions(secretInfo.Cfg, secretInfo.Parts["domain"], secretInfo.Parts["token"])
 	case "jira":
 		jira.AnalyzeAndPrintPermissions(secretInfo.Cfg, secretInfo.Parts["domain"], secretInfo.Parts["email"], secretInfo.Parts["token"])
+	case "terraformcloud":
+		terraformcloud.AnalyzeAndPrintPermissions(secretInfo.Cfg, secretInfo.Parts["key"])
 	}
 }

@@ -1,0 +1,6 @@
+permissions:
+  - account_read
+  - organizations_read
+  - workspaces_read
+  - variables_read
+  - varsets_read
