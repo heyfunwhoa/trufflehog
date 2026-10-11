@@ -1,0 +1,6 @@
+permissions:
+  - token_verify
+  - user_read
+  - account_read
+  - zone_read
+  - tokens_read

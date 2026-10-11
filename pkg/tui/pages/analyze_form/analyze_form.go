@@ -148,6 +148,28 @@ func New(c common.Common, keyType string) *AnalyzeForm {
 			Required:    true,
 			RedactInput: true,
 		}}
+	case "hashicorpvault":
+		inputs = []textinputs.InputConfig{{
+			Label:       "Token",
+			Key:         "key",
+			Required:    true,
+			RedactInput: true,
+		}, {
+			Label:    "Vault URL",
+			Key:      "url",
+			Required: true,
+		}}
+	case "cloudflare":
+		inputs = []textinputs.InputConfig{{
+			Label:       "API Token",
+			Key:         "key",
+			Required:    true,
+			RedactInput: true,
+		}, {
+			Label:    "Account ID (required for cfat_ account tokens)",
+			Key:      "account_id",
+			Required: false,
+		}}
 	default:
 		inputs = []textinputs.InputConfig{{
 			Label:       "Secret",

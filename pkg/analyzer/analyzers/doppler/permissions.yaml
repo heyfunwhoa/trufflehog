@@ -1,0 +1,7 @@
+permissions:
+  - workplace_read
+  - projects_read
+  - configs_read
+  - secrets_read
+  - scim_access
+  - audit_read
