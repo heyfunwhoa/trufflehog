@@ -17,6 +17,11 @@ var (
 	validIdPattern    = "1bTaEGIzJRnBN77woEGPwMiuLS68HN"
 	invalidIdPattern  = "=bTaEGIzJRnBN7.woEGPwMiuLS68HN"
 	keyword           = "mixpanel"
+
+	serviceAccountUsername = "posthog-migrate.a2b789.mp-service-account"
+	serviceAccountSecret   = "fCPFrpZYdzB9nlZ9kqabZcXuxSLKhjld"
+	projectSecret          = "a1b2c3d4e5f60718293a4b5c6d7e8f90"
+	projectToken           = "fa45c697d1c664abb760166578f91f24"
 )
 
 func TestMixpanel_Pattern(t *testing.T) {
@@ -29,8 +34,8 @@ func TestMixpanel_Pattern(t *testing.T) {
 	}{
 		{
 			name:  "valid pattern - with keyword mixpanel",
-			input: fmt.Sprintf("%s %s %s", keyword, validKeyPattern, validIdPattern),
-			want:  []string{validKeyPattern},
+			input: fmt.Sprintf("mixpanel secret %s within mixpanel %s", validKeyPattern, validIdPattern),
+			want:  []string{validIdPattern + ":" + validKeyPattern},
 		},
 		{
 			name:  "valid pattern - key out of prefix range",
@@ -42,13 +47,53 @@ func TestMixpanel_Pattern(t *testing.T) {
 			input: fmt.Sprintf("%s key = '%s' url = '%s'", keyword, invalidKeyPattern, invalidIdPattern),
 			want:  []string{},
 		},
+		{
+			name: "service account username and secret",
+			input: fmt.Sprintf(
+				"username = %s\nmixpanel password = %s",
+				serviceAccountUsername,
+				serviceAccountSecret,
+			),
+			want: []string{serviceAccountUsername + ":" + serviceAccountSecret},
+		},
+		{
+			name: "short service account username without mixpanel keyword",
+			input: fmt.Sprintf(
+				"username = %s\npassword = %s",
+				"ci.a1.mp-service-account",
+				serviceAccountSecret,
+			),
+			want: []string{"ci.a1.mp-service-account:" + serviceAccountSecret},
+		},
+		{
+			name:  "project secret with MIXPANEL_API_SECRET",
+			input: fmt.Sprintf("MIXPANEL_API_SECRET=%s", projectSecret),
+			want:  []string{projectSecret},
+		},
+		{
+			name:  "project secret with mixpanel secret label",
+			input: fmt.Sprintf("mixpanel secret = %s", projectSecret),
+			want:  []string{projectSecret},
+		},
+		{
+			name:  "public project token is not reported",
+			input: fmt.Sprintf(`mixpanel.init("%s")`, projectToken),
+			want:  []string{},
+		},
+		{
+			name:  "MIXPANEL_TOKEN is not reported",
+			input: fmt.Sprintf("MIXPANEL_TOKEN=%s", projectToken),
+			want:  []string{},
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			matchedDetectors := ahoCorasickCore.FindDetectorMatches([]byte(test.input))
 			if len(matchedDetectors) == 0 {
-				t.Errorf("keywords '%v' not matched by: %s", d.Keywords(), test.input)
+				if len(test.want) > 0 {
+					t.Errorf("keywords '%v' not matched by: %s", d.Keywords(), test.input)
+				}
 				return
 			}
 

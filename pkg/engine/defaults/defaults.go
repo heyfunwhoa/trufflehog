@@ -495,6 +495,7 @@ import (
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/miro"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/mite"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/mixmax"
+	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/mixpanel"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/mockaroo"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/moderation"
 	"github.com/trufflesecurity/trufflehog/v3/pkg/detectors/monday"
@@ -1416,7 +1417,7 @@ func buildDetectorList() []detectors.Detector {
 		&miro.Scanner{},
 		&mite.Scanner{},
 		&mixmax.Scanner{},
-		// &mixpanel.Scanner{},
+		&mixpanel.Scanner{},
 		&mockaroo.Scanner{},
 		&moderation.Scanner{},
 		&monday.Scanner{},
